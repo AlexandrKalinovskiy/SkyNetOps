@@ -2,10 +2,16 @@ from openai import OpenAI
 from typing import Type, TypeVar
 from pydantic import BaseModel
 import os
+from pathlib import Path
+from dotenv import load_dotenv, find_dotenv
 
 T = TypeVar("T", bound=BaseModel)
 
 def parse_cli_to_model(section_cli, schema: Type[T]):
+    # Bezpieczne wyszukiwanie .env w górę od pliku startowego
+    env_path = find_dotenv() or (Path(__file__).resolve().parent / ".env")
+    load_dotenv(env_path)
+
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     client = OpenAI(api_key=OPENAI_API_KEY)
 
