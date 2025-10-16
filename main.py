@@ -13,8 +13,8 @@ from netbox_utils.dcim.interface import upsert_interface
 from netbox_utils.utils import sha256_of, clear_ips
 from parsers.ai_parser import parse_cli_to_model
 from models import Facts, Interface
-from utils import extract_interface_section
-from netbox_device_sync.netbox_utils.ipam.ip import get_or_create_ip
+from device_io.utils import extract_interface_section
+from netbox_utils.ipam.ip import get_or_create_ip
 import re
 
 console = Console()

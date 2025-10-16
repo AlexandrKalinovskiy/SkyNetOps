@@ -1,6 +1,6 @@
 # Ignore Python virtual environment
 .venv/
-
+.env
 # PyCharm config
 .idea/
 
