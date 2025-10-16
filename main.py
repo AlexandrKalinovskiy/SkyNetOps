@@ -5,7 +5,7 @@ class NetBoxCreateError(Exception):
     pass
 
 import pynetbox
-from device_io.ssh import connect_ssh, disable_paging, run_command, detect_device
+from device_io.ssh import connect_ssh, disable_paging, run_command
 from device_io.commands import get_command, SHOW_VERSION, SHOW_INTERFACES
 from rich.console import Console
 from netbox_utils.dcim.device import ensure_device_registered
@@ -15,6 +15,7 @@ from parsers.ai_parser import parse_cli_to_model
 from models import Facts, Interface
 from device_io.utils import extract_interface_section
 from netbox_utils.ipam.ip import get_or_create_ip
+from device_io.snmp.snmp_interfaces import scan
 import re
 
 console = Console()
@@ -102,6 +103,9 @@ def start(device_type: str, device_name: str, host: str):
 
 if __name__ == "__main__":
     # start("cisco_ios", "ROUTER_1", "172.28.0.11")
-    start("cisco_ios", "SWITCH_DC", "SWITCH_DC")
+    # start("cisco_ios", "SWITCH_DC", "SWITCH_DC")
     # start("dell_os10", "DELL_TEST", "172.28.0.14")
     # detect_device("85.202.58.98", "admin", "Op2oyxq##")
+    scan("172.28.0.17")
+    print("\n")
+    scan("172.28.0.12")
