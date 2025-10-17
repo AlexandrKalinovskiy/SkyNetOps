@@ -66,7 +66,7 @@ class Interface(BaseModel):
     ipv4: List[IPv4] = Field(default_factory=list),
 
 class Facts(BaseModel):
-    hostname: str
+    hostname: Optional[str] = None
     vendor: Optional[Literal["Cisco", "Dell", "Huawei", "Fortigate", "Juniper", "Mikrotik"]] = None
     model: constr(pattern=r"^[\w\-\.]+$")  # type: ignore # litery/cyfry/kreski/kropki
     serial_number: Optional[str] = None

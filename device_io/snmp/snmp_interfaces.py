@@ -3,9 +3,9 @@ from pysnmp.carrier.asyncio.dgram import udp
 from pyasn1.codec.ber import encoder, decoder
 from pysnmp.proto.api import v2c
 
-def scan(ip: str):
-    HOST = (ip, 161)
-    COMMUNITY = "public"
+def get(ip: str):
+    host = (ip, 161)
+    community = "public"
 
     # IF-MIB OID-y
     IFDESCR_OID = (1, 3, 6, 1, 2, 1, 2, 2, 1, 2)   # ifDescr – pełne nazwy interfejsów
@@ -21,7 +21,7 @@ def scan(ip: str):
 
         reqMsg = v2c.Message()
         v2c.apiMessage.set_defaults(reqMsg)
-        v2c.apiMessage.set_community(reqMsg, COMMUNITY)
+        v2c.apiMessage.set_community(reqMsg, community)
         v2c.apiMessage.set_pdu(reqMsg, reqPDU)
 
         results = {}
@@ -60,7 +60,7 @@ def scan(ip: str):
         dispatcher = AsyncioDispatcher()
         dispatcher.register_recv_callback(cb)
         dispatcher.register_transport(udp.DOMAIN_NAME, udp.UdpAsyncioTransport().open_client_mode())
-        dispatcher.send_message(encoder.encode(reqMsg), udp.DOMAIN_NAME, HOST)
+        dispatcher.send_message(encoder.encode(reqMsg), udp.DOMAIN_NAME, host)
         dispatcher.job_started(1)
         dispatcher.run_dispatcher(3)
         dispatcher.close_dispatcher()

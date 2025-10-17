@@ -97,22 +97,12 @@ def try_connect_by_list(ip: str, username: str, password: str, candidates: List[
             continue
     return None
 
-def detect_device(ip: str, username: str, password: str):
-    # 1) banner grabbing
-    banner = grab_ssh_banner(ip, port=8722)
-    print("Banner:", banner)
-
-    # 2) SSHDetect (szybki, jeśli mamy creds)
-    try:
-        guess = detect_with_sshdetect(ip, port=8722, username=username, password=password)
-        print("SSHDetect guess:", guess)
-    except NetmikoAuthenticationException:
-        print("Auth failed for SSHDetect")
-    except NetmikoTimeoutException:
-        print("Timeout for SSHDetect")
-
-    # 3) Fallback - próba z listą najbardziej typowych device_type
-    candidates = ["cisco_ios", "cisco_nxos", "arista_eos", "dell_os10", "dell_force10", "juniper", "fortinet",
-                  "hp_procurve", "huawei", "linux"]
-    result = try_connect_by_list(ip, username, password, candidates)
-    print("Fallback result:", result)
+def auto_detect():
+    remote_device = {'device_type': 'autodetect',
+                          'host': '172.28.0.17',
+                          'username': 'admin',
+                          'password': 'Op2oyxq##'}
+    guesser = SSHDetect(**remote_device)
+    best_match = guesser.autodetect()
+    print(best_match)  # Name of the best device_type to use further
+    print(guesser.potential_matches)  # Dictionary of the whole matching result

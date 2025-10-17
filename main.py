@@ -5,7 +5,7 @@ class NetBoxCreateError(Exception):
     pass
 
 import pynetbox
-from device_io.ssh import connect_ssh, disable_paging, run_command
+from device_io.ssh import connect_ssh, disable_paging, run_command, auto_detect
 from device_io.commands import get_command, SHOW_VERSION, SHOW_INTERFACES
 from rich.console import Console
 from netbox_utils.dcim.device import ensure_device_registered
@@ -15,7 +15,8 @@ from parsers.ai_parser import parse_cli_to_model
 from models import Facts, Interface
 from device_io.utils import extract_interface_section
 from netbox_utils.ipam.ip import get_or_create_ip
-from device_io.snmp.snmp_interfaces import scan
+from device_io.snmp import snmp_interfaces, snmp_facts
+import  device_io.netmiko_autodetect as netmiko_autodetect
 import re
 
 console = Console()
@@ -105,7 +106,22 @@ if __name__ == "__main__":
     # start("cisco_ios", "ROUTER_1", "172.28.0.11")
     # start("cisco_ios", "SWITCH_DC", "SWITCH_DC")
     # start("dell_os10", "DELL_TEST", "172.28.0.14")
-    # detect_device("85.202.58.98", "admin", "Op2oyxq##")
-    scan("172.28.0.17")
-    print("\n")
-    scan("172.28.0.12")
+    facts = snmp_facts.get("172.28.0.17")
+    print(facts.hostname)
+    # facts = snmp_facts.get("172.28.0.12")
+    # print(facts.hostname)
+    # facts = snmp_facts.get("172.28.0.11")
+    # print(facts.hostname)
+
+    device_type, show_version = netmiko_autodetect.detect_platform(
+        ip="172.28.0.17",
+        sysdescr=facts.dev_os,  # to dostajesz z SNMP
+        username="admin",
+        password="Op2oyxq##"
+    )
+
+    print(device_type)
+    # auto_detect()
+    # snmp_interfaces.get("172.28.0.17")
+    # print("\n")
+    # snmp_interfaces.get("172.28.0.12")
