@@ -3,8 +3,9 @@ from pysnmp.carrier.asyncio.dgram import udp
 from pyasn1.codec.ber import encoder, decoder
 from pysnmp.proto.api import v2c
 import device_io.snmp.utils as utils
-from models import Facts
-
+from models import Facts, DetectPlatform
+from parsers.ai_parser import parse_cli_to_model
+from . import snmp_interfaces
 
 def get(ip: str) -> Facts:
     host = (ip, 161)
@@ -62,12 +63,21 @@ def get(ip: str) -> Facts:
     dispatcher.close_dispatcher()
 
     print(result)
+    platform_detect = parse_cli_to_model(result.get("sysDescr"), DetectPlatform)
+
+    interfaces = snmp_interfaces.get(ip, core_only=True)
+
+    for iface in interfaces:
+        print(f"{iface}")
+        # print(f"{iface['name']:25}  {iface['mac']}")
+
     return Facts(
-        hostname=result["hostname"] or ip,
-        vendor=None,
-        model="None",
-        serial_number=None,
-        os_version=None,
-        dev_os=result["sysDescr"],
-        device_role=None
+        hostname=result["hostname"] or "",
+        interfaces=interfaces,
+        vendor="",
+        model="",
+        platform=platform_detect.platform,
+        serial="",
+        os_version="",
+        mgmt_ip="",
     )

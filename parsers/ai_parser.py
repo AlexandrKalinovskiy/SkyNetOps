@@ -24,7 +24,7 @@ def parse_cli_to_model(section_cli, schema: Type[T]):
     resp = client.responses.parse(
         model=model,
         input=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            # {"role": "system", "content": "SYSTEM_PROMPT"},
             {"role": "user", "content": section_cli }
         ],
         text_format=schema,

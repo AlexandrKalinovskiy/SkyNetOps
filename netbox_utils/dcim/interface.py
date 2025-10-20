@@ -1,6 +1,6 @@
 from pynetbox.core.query import RequestError
 from typing import List, Optional, Sequence, Union, Literal, Dict, Any, Tuple
-from ..utils import first, iface_type_from_name, _norm_mac
+from netbox_utils.utils import first, iface_type_from_name, _norm_mac
 
 def upsert_interface(
     nb,

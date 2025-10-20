@@ -65,22 +65,122 @@ class Interface(BaseModel):
     )
     ipv4: List[IPv4] = Field(default_factory=list),
 
-class Facts(BaseModel):
-    hostname: Optional[str] = None
-    vendor: Optional[Literal["Cisco", "Dell", "Huawei", "Fortigate", "Juniper", "Mikrotik"]] = None
-    model: constr(pattern=r"^[\w\-\.]+$")  # type: ignore # litery/cyfry/kreski/kropki
-    serial_number: Optional[str] = None
-    os_version: Optional[str] = None
-    dev_os: Optional[str] = None
-    device_role: Optional[Literal["switch", "router", "server", "firewall"]] = None
+# class Facts(BaseModel):
+#     hostname: Optional[str] = Field(
+#         default=None,
+#         description=(
+#             "The system hostname of the network device. Extract it from the CLI prompt "
+#             "or configuration (e.g. 'show running-config', 'display current-configuration'). "
+#             "Examples: 'R1', 'core-sw1', 'edge-router-ny', 'fw01'. "
+#             "Do not return IP addresses, serial numbers, or login banners. "
+#             "Return only the actual hostname without domain (no FQDN)."
+#         )
+#     )
+#     vendor: Optional[str] = None
+#     model: Optional[str] = None
+#     serial_number: Optional[str] = None
+#     os_version: Optional[str] = None
+#     platform: str = Field(
+#         description=(
+#             "Netmiko device_type – the exact SSH platform identifier required by Netmiko "
+#             "to establish an SSH connection to the device. Based on the input data of the device "
+#             "(e.g. sysDescr, sysObjectID, or model name like 'C2960X', 'SG350X-48', 'N4032F', etc.), "
+#             "return exactly ONE valid Netmiko device_type. "
+#             "Examples: 'cisco_ios', 'cisco_xe', 'cisco_nxos', 'dell_os10', 'dell_force10', "
+#             "'hp_comware', 'mikrotik_routeros', 'juniper_junos', 'fortinet', 'arista_eos'. "
+#             "For small business Cisco models (e.g. SG350X-48, SF300, SG500), automatically detect "
+#             "that these devices use classic IOS-like CLI and return 'cisco_ios'. "
+#             "If the platform cannot be reliably detected, return 'unknown'."
+#         ),
+#         examples=["cisco_ios", "hp_comware", "mikrotik_routeros", "fortinet"]
+#     )
+#     device_role: Optional[str] = None
+#     interfaces: Optional[List[Interface]] = Field(
+#         default=None,
+#         description=()
+#     )
+#
+#     @field_validator("device_role", mode="before")
+#     @classmethod
+#     def _default_role(cls, v):
+#         # Jeśli AI zwróci null/""/None → ustaw switch
+#         if v is None or (isinstance(v, str) and not v.strip()):
+#             return "switch"
+#         return v
 
-    @field_validator("device_role", mode="before")
-    @classmethod
-    def _default_role(cls, v):
-        # Jeśli AI zwróci null/""/None → ustaw switch
-        if v is None or (isinstance(v, str) and not v.strip()):
-            return "switch"
-        return v
+class Facts(BaseModel):
+    hostname: str = Field(
+        description=(
+            "Device hostname (system name). Example: SW-CORE-1. "
+            "Should be taken from CLI 'show running-config | include hostname' "
+            "or SNMP sysName (1.3.6.1.2.1.1.5.0). MUST NOT be empty."
+        )
+    )
+
+    vendor: Optional[str] = Field(
+        description=(
+            "Vendor/manufacturer name. Must be normalized to lowercase. "
+            "Possible values: cisco, dell, juniper, mikrotik, huawei, fortinet, vyos, ubiquiti, aruba. "
+            "Source: CLI 'show version' or SNMP sysDescr. If unknown, use None."
+        )
+    )
+
+    model: Optional[str] = Field(
+        description=(
+            "Exact hardware model. Example: 'WS-C2960X-48LPD-L', 'N4064F', 'CCR1036-8G-2S+'. "
+            "Required for NetBox device_type mapping. If not found, set None."
+        )
+    )
+
+    serial_number: Optional[str] = Field(
+        alias="serial",
+        description=(
+            "Chassis serial number. Example: 'FOC1234X1YZ'. "
+            "If multiple serials exist (stack or VLT), provide ONLY the main serial or chassis 1. "
+            "If not available, set None."
+        )
+    )
+
+    platform: Optional[str] = Field(
+        description=(
+            "Platform identifier for automation libraries like Netmiko/NAPALM. "
+            "Example: cisco_ios, dell_os10, juniper_junos, mikrotik_routeros. "
+            "Value determines SSH driver selection. Set None if unknown."
+        )
+    )
+
+    os_version: Optional[str] = Field(
+        description=(
+            "Operating system version string from CLI or SNMP. Example: '15.2(7)E4', 'OS10.5.1.4'. "
+            "Extract from 'show version', '/system resource print', or SNMP sysDescr. "
+            "Set None if not detected."
+        )
+    )
+
+    mgmt_ip: Optional[str] = Field(
+        description=(
+            "Primary management IP address used for SSH/SNMP access. "
+            "Optional helper field – may come from inventory or autodetection. "
+            "Example: '10.10.50.11'."
+        )
+    )
+
+    interfaces: List[str] = Field(
+        description=(
+            "List of interface names detected on the device. MUST include ALL interfaces. "
+            "Source: SNMP ifDescr or CLI 'show interfaces', '/interface print'. "
+            "Example: ['GigabitEthernet1/0/1', 'GigabitEthernet1/0/2', 'Vlan10', 'Port-Channel1']"
+        )
+    )
+
+class DetectPlatform(BaseModel):
+    platform: Optional[str] = Field(
+        description=(
+            "Platform identifier for automation libraries like Netmiko/NAPALM. "
+            "Example: cisco_ios, dell_os10, juniper_junos, mikrotik_routeros. "
+            "Value determines SSH driver selection. Set None if unknown."
+        )
+    )
 
 class NapalmLike(BaseModel):
     facts: Facts

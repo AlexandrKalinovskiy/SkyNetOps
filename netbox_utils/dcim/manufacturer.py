@@ -1,4 +1,4 @@
-from ..utils import first
+from netbox_utils.utils import first
 
 def get_or_create_manufacturer(nb, name: str, slug: str):
     manu = nb.dcim.manufacturers.get(slug=slug)

@@ -1,22 +1,17 @@
-from typing import Dict, List
-import re
 from pysnmp.carrier.asyncio.dispatch import AsyncioDispatcher
 from pysnmp.carrier.asyncio.dgram import udp
 from pyasn1.codec.ber import encoder, decoder
 from pysnmp.proto.api import v2c
 
-# IF-MIB
-IFDESCR_OID    = (1, 3, 6, 1, 2, 1, 2, 2, 1, 2)  # ifDescr
-IFTYPE_OID     = (1, 3, 6, 1, 2, 1, 2, 2, 1, 3)  # ifType
-# IF-TYPE values (RFC 2863 +)
-IFTYPE_ETHERNET_CSMACD = 6                       # fizyczny Ethernet (to, co chcemy)
-
-_FEX_ETH_RE = re.compile(r"^Ethernet(\d{3,})/")  # Ethernet101/..., 102/... => FEX
-
-def get(ip: str, community: str = "public", *, core_only: bool = False) -> List[str]:
+def get(ip: str):
     host = (ip, 161)
+    community = "public"
 
-    def bulkwalk(prefix_oid) -> Dict[int, str]:
+    # IF-MIB OID-y
+    IFDESCR_OID = (1, 3, 6, 1, 2, 1, 2, 2, 1, 2)   # ifDescr – pełne nazwy interfejsów
+    IFPHYSADDR_OID = (1, 3, 6, 1, 2, 1, 2, 2, 1, 6)  # ifPhysAddress – MAC adres
+
+    def bulkwalk(prefix_oid):
         headVars = [v2c.ObjectIdentifier(prefix_oid)]
         reqPDU = v2c.GetBulkRequestPDU()
         v2c.apiBulkPDU.set_defaults(reqPDU)
@@ -29,7 +24,7 @@ def get(ip: str, community: str = "public", *, core_only: bool = False) -> List[
         v2c.apiMessage.set_community(reqMsg, community)
         v2c.apiMessage.set_pdu(reqMsg, reqPDU)
 
-        results: Dict[int, str] = {}
+        results = {}
 
         def in_subtree(oid, prefix):
             return oid.asTuple()[:len(prefix)] == prefix
@@ -48,8 +43,8 @@ def get(ip: str, community: str = "public", *, core_only: bool = False) -> List[
                             if not in_subtree(oid, prefix_oid) or isinstance(val, v2c.Null):
                                 done = True
                                 break
-                            idx = int(oid.asTuple()[-1])
-                            results[idx] = val.prettyPrint()
+                            index = oid.asTuple()[-1]
+                            results[index] = val.prettyPrint()
                         if done:
                             break
 
@@ -71,34 +66,24 @@ def get(ip: str, community: str = "public", *, core_only: bool = False) -> List[
         dispatcher.close_dispatcher()
         return results
 
-    # === Pobierz surowe tabele ===
-    ifdescr = bulkwalk(IFDESCR_OID)   # idx -> nazwa (np. Ethernet1/1, Vlan10, port-channel10, mgmt0...)
-    iftype  = bulkwalk(IFTYPE_OID)    # idx -> typ (np. "6" dla ethernetCsmacd)
 
-    # === Filtr: tylko fizyczne (ifType == 6) ===
-    physical = []
-    for idx, name in ifdescr.items():
-        try:
-            t = int(iftype.get(idx, "0"))
-        except ValueError:
-            t = 0
-        if t != IFTYPE_ETHERNET_CSMACD:
-            continue  # odetnij Vlan/Loopback/Port-Channel/etc.
+    def parse_mac(hex_string):
+        if not hex_string or not hex_string.startswith("0x"):
+            return None
+        hex_value = hex_string[2:]
+        return ":".join(hex_value[i:i+2] for i in range(0, len(hex_value), 2))
 
-        n = name.strip()
 
-        # (Opcjonalnie) NX-OS: FEX to EthernetXXX/...
-        if core_only:
-            m = _FEX_ETH_RE.match(n)
-            if m:
-                fex_id = int(m.group(1))
-                if fex_id >= 100:  # FEX ports
-                    continue
+    # === Pobieramy nazwy i MAC-e ===
+    names = bulkwalk(IFDESCR_OID)
+    macs = bulkwalk(IFPHYSADDR_OID)
 
-        physical.append(n)
+    interfaces = []
+    for idx in sorted(names.keys(), key=int):
+        interfaces.append(names[idx])
+        # interfaces.append({
+        #     "name": names[idx],
+        #     "mac": parse_mac(macs.get(idx, ""))
+        # })
 
-    # sortowanie naturalne (Ethernet1/2 przed Ethernet1/10)
-    def natkey(s: str):
-        return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
-
-    return sorted(set(physical), key=natkey)
+    return  interfaces

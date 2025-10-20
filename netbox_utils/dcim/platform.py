@@ -1,4 +1,4 @@
-from ..utils import _slugify
+from netbox_utils.utils import _slugify
 
 def get_or_create_platform(nb, name: str):
     p = nb.dcim.platforms.get(name=name)
