@@ -2,6 +2,7 @@ import re
 import hashlib
 from models import IPv4
 from typing import List
+from ipaddress import ip_address
 
 def first(recordset):
     """Zwraca pierwszy element RecordSet albo None."""
@@ -93,3 +94,23 @@ def is_primary_interface(name: str, description: str = "") -> bool:
         return True
 
     return False
+
+def is_valid_ip(ip: str) -> bool:
+    try:
+        ip_obj = ip_address(ip)
+    except ValueError:
+        return False
+
+    # odrzucamy typowe śmieciowe IP
+    if ip_obj.is_unspecified:   # 0.0.0.0, ::
+        return False
+    if ip_obj.is_loopback:      # 127.0.0.0/8, ::1
+        return False
+    if ip_obj.is_link_local:    # 169.254.x.x, fe80::
+        return False
+    if ip_obj.is_multicast:     # 224.0.0.0/4 ...
+        return False
+    if ip_obj.is_reserved:      # zarezerwowane bloki
+        return False
+
+    return True

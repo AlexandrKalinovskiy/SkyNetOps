@@ -1,104 +1,54 @@
-from typing import Dict, List
+import subprocess
 import re
-from pysnmp.carrier.asyncio.dispatch import AsyncioDispatcher
-from pysnmp.carrier.asyncio.dgram import udp
-from pyasn1.codec.ber import encoder, decoder
-from pysnmp.proto.api import v2c
+from typing import Dict
 
-# IF-MIB
-IFDESCR_OID    = (1, 3, 6, 1, 2, 1, 2, 2, 1, 2)  # ifDescr
-IFTYPE_OID     = (1, 3, 6, 1, 2, 1, 2, 2, 1, 3)  # ifType
-# IF-TYPE values (RFC 2863 +)
-IFTYPE_ETHERNET_CSMACD = 6                       # fizyczny Ethernet (to, co chcemy)
+def get(ip: str, community: str = "public") -> Dict[str, str]:
+    """
+    Zwraca słownik {MAC: interfejs}.
+    - ifDescr          -> 1.3.6.1.2.1.2.2.1.2
+    - ifPhysAddress    -> 1.3.6.1.2.1.2.2.1.6
+    Regexy są „luźne” i nie zakładają konkretnego prefiksu (iso./MIB::).
+    """
+    # --- ifDescr: indeks -> nazwa interfejsu ---
+    oid_descr = "1.3.6.1.2.1.2.2.1.2"
+    descr_out = subprocess.run(
+        ["snmpwalk", "-v2c", "-c", community, ip, oid_descr],
+        capture_output=True, text=True
+    ).stdout
 
-_FEX_ETH_RE = re.compile(r"^Ethernet(\d{3,})/")  # Ethernet101/..., 102/... => FEX
+    # np. 'iso.3.6.1.2.1.2.2.1.2.1002 = STRING: "GigabitEthernet1/0/1"'
+    re_descr = re.compile(r'\.(\d+)\s*=\s*STRING:\s*"([^"]*)"')
+    ifdescr = {int(idx): name for idx, name in re_descr.findall(descr_out)}
 
-def get(ip: str, community: str = "public", *, core_only: bool = False) -> List[str]:
-    host = (ip, 161)
+    # --- ifPhysAddress: indeks -> MAC ---
+    oid_mac = "1.3.6.1.2.1.2.2.1.6"
+    mac_out = subprocess.run(
+        ["snmpwalk", "-v2c", "-c", community, ip, oid_mac],
+        capture_output=True, text=True
+    ).stdout
 
-    def bulkwalk(prefix_oid) -> Dict[int, str]:
-        headVars = [v2c.ObjectIdentifier(prefix_oid)]
-        reqPDU = v2c.GetBulkRequestPDU()
-        v2c.apiBulkPDU.set_defaults(reqPDU)
-        v2c.apiBulkPDU.set_non_repeaters(reqPDU, 0)
-        v2c.apiBulkPDU.set_max_repetitions(reqPDU, 25)
-        v2c.apiBulkPDU.set_varbinds(reqPDU, [(x, v2c.null) for x in headVars])
+    # np. '...1.6.1002 = Hex-STRING: 40 A6 E8 FD F0 4B'
+    re_mac = re.compile(r'\.(\d+)\s*=\s*Hex-STRING:\s*([0-9A-Fa-f ]+)')
+    idx_mac_pairs = re_mac.findall(mac_out)
 
-        reqMsg = v2c.Message()
-        v2c.apiMessage.set_defaults(reqMsg)
-        v2c.apiMessage.set_community(reqMsg, community)
-        v2c.apiMessage.set_pdu(reqMsg, reqPDU)
+    mac_to_iface: Dict[str, str] = {}
+    for idx_str, mac_hex in idx_mac_pairs:
+        idx = int(idx_str)
+        hex_bytes = mac_hex.strip().split()
+        if not hex_bytes:
+            continue
+        mac = ":".join(hex_bytes).upper()
+        iface = ifdescr.get(idx, f"ifIndex {idx}")
+        mac_to_iface[mac] = iface
 
-        results: Dict[int, str] = {}
+    return mac_to_iface
 
-        def in_subtree(oid, prefix):
-            return oid.asTuple()[:len(prefix)] == prefix
 
-        def cb(dispatcher, domain, address, wholeMsg, reqPDU=reqPDU):
-            nonlocal results
-            while wholeMsg:
-                rspMsg, wholeMsg = decoder.decode(wholeMsg, asn1Spec=v2c.Message())
-                rspPDU = v2c.apiMessage.get_pdu(rspMsg)
-
-                if v2c.apiBulkPDU.get_request_id(reqPDU) == v2c.apiBulkPDU.get_request_id(rspPDU):
-                    table = v2c.apiBulkPDU.get_varbind_table(reqPDU, rspPDU)
-                    done = False
-                    for row in table:
-                        for oid, val in row:
-                            if not in_subtree(oid, prefix_oid) or isinstance(val, v2c.Null):
-                                done = True
-                                break
-                            idx = int(oid.asTuple()[-1])
-                            results[idx] = val.prettyPrint()
-                        if done:
-                            break
-
-                    if done:
-                        dispatcher.job_finished(1)
-                        continue
-
-                    v2c.apiBulkPDU.set_varbinds(reqPDU, [(x, v2c.null) for x, _ in table[-1]])
-                    v2c.apiBulkPDU.set_request_id(reqPDU, v2c.getNextRequestID())
-                    dispatcher.send_message(encoder.encode(reqMsg), domain, address)
-            return wholeMsg
-
-        dispatcher = AsyncioDispatcher()
-        dispatcher.register_recv_callback(cb)
-        dispatcher.register_transport(udp.DOMAIN_NAME, udp.UdpAsyncioTransport().open_client_mode())
-        dispatcher.send_message(encoder.encode(reqMsg), udp.DOMAIN_NAME, host)
-        dispatcher.job_started(1)
-        dispatcher.run_dispatcher(3)
-        dispatcher.close_dispatcher()
-        return results
-
-    # === Pobierz surowe tabele ===
-    ifdescr = bulkwalk(IFDESCR_OID)   # idx -> nazwa (np. Ethernet1/1, Vlan10, port-channel10, mgmt0...)
-    iftype  = bulkwalk(IFTYPE_OID)    # idx -> typ (np. "6" dla ethernetCsmacd)
-
-    # === Filtr: tylko fizyczne (ifType == 6) ===
-    physical = []
-    for idx, name in ifdescr.items():
-        try:
-            t = int(iftype.get(idx, "0"))
-        except ValueError:
-            t = 0
-        if t != IFTYPE_ETHERNET_CSMACD:
-            continue  # odetnij Vlan/Loopback/Port-Channel/etc.
-
-        n = name.strip()
-
-        # (Opcjonalnie) NX-OS: FEX to EthernetXXX/...
-        if core_only:
-            m = _FEX_ETH_RE.match(n)
-            if m:
-                fex_id = int(m.group(1))
-                if fex_id >= 100:  # FEX ports
-                    continue
-
-        physical.append(n)
-
-    # sortowanie naturalne (Ethernet1/2 przed Ethernet1/10)
-    def natkey(s: str):
-        return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
-
-    return sorted(set(physical), key=natkey)
+# === PRZYKŁAD UŻYCIA ===
+if __name__ == "__main__":
+    ip = "172.16.2.202"
+    community = "public"
+    mapping = get(ip, community)
+    print("MAC → Interfejs:")
+    for mac, iface in mapping.items():
+        print(f"{mac:20} -> {iface}")

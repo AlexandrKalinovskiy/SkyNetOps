@@ -133,7 +133,7 @@ class Facts(BaseModel):
     )
 
     serial_number: Optional[str] = Field(
-        alias="serial",
+        default=None,
         description=(
             "Chassis serial number. Example: 'FOC1234X1YZ'. "
             "If multiple serials exist (stack or VLT), provide ONLY the main serial or chassis 1. "
@@ -146,6 +146,12 @@ class Facts(BaseModel):
             "Platform identifier for automation libraries like Netmiko/NAPALM. "
             "Example: cisco_ios, dell_os10, juniper_junos, mikrotik_routeros. "
             "Value determines SSH driver selection. Set None if unknown."
+        )
+    )
+
+    device_role: Optional[str] = Field(
+        description=(
+            "Device role of this device. switch, router, server, firewall "
         )
     )
 
@@ -174,11 +180,30 @@ class Facts(BaseModel):
     )
 
 class DetectPlatform(BaseModel):
-    platform: Optional[str] = Field(
+    platform: str = Field(
+        default="unknown",
         description=(
-            "Platform identifier for automation libraries like Netmiko/NAPALM. "
-            "Example: cisco_ios, dell_os10, juniper_junos, mikrotik_routeros. "
-            "Value determines SSH driver selection. Set None if unknown."
+            "Platform identifier for automation libraries like "
+            "cisco_ios, dell_os10, juniper_junos, mikrotik_routeros. "
+            "If unknown, must be exactly 'unknown'. Never return null."
+        )
+    )
+
+class DetectDeviceRole(BaseModel):
+    role: Optional[str] = Field(
+        description=(
+            "Network device role based on hostname, system description, or platform. "
+            "Valid values: switch, router, server, firewall. "
+            "Specify the most correct role. If unsure, set to unknown."
+        )
+    )
+
+class DetectVendor(BaseModel):
+    vendor: Optional[str] = Field(
+        description=(
+            "Network device vendor based on hostname, hardware description, MAC address OUI, "
+            "or platform. Examples: Cisco, Dell, Juniper, MikroTik, Huawei, HP, Fortinet. "
+            "If unsure, set to unknown."
         )
     )
 

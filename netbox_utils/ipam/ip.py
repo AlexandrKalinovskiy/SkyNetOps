@@ -18,7 +18,7 @@ def get_or_create_ip(
         else:
             iface = nb.dcim.interfaces.get(existing_ip.assigned_object_id)
             device = nb.dcim.devices.get(iface.device.id)
-            raise Exception(f"IP {address} is assigned to: {device.name} ({existing_ip.assigned_object})")
+            # raise Exception(f"IP {address} is assigned to: {device.name} ({existing_ip.assigned_object})")
     else:
         existing_ip = nb.ipam.ip_addresses.create(
             {

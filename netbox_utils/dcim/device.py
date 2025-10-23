@@ -37,7 +37,6 @@ def get_or_create_device(nb, *, name: str, site_id: int, role_id: int, device_ty
 def ensure_device_registered(
     nb,
     device_name,
-    device_type: str = "cisco_ios",
     site_name: str = "LAB-DC",
     site_slug: str = "lab-dc",
     facts: Facts = None
@@ -58,7 +57,7 @@ def ensure_device_registered(
     try:
         site = get_or_create_site(nb, site_name, site_slug)
         manu = get_or_create_manufacturer(nb, facts.vendor, facts.vendor.lower().replace(" ", "-"))
-        plat = get_or_create_platform(nb, device_type)
+        plat = get_or_create_platform(nb, facts.platform)
         role = get_or_create_device_role(nb, facts.device_role, facts.device_role.lower().replace(" ", "-"))
         dtype = get_or_create_device_type(nb, facts.model, manu.id)
     except Exception as e:
