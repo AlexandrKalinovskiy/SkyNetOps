@@ -4,11 +4,11 @@ class NetBoxCreateError(Exception):
     pass
 
 from models import Facts
-from .site import get_or_create_site
-from .manufacturer import get_or_create_manufacturer
-from .device_role import get_or_create_device_role
-from .device_type import get_or_create_device_type
-from .platform import get_or_create_platform
+from netbox_utils.dcim.site import get_or_create_site
+from netbox_utils.dcim.manufacturer import get_or_create_manufacturer
+from netbox_utils.dcim.device_role import get_or_create_device_role
+from netbox_utils.dcim.device_type import get_or_create_device_type
+from netbox_utils.dcim.platform import get_or_create_platform
 
 def get_or_create_device(nb, *, name: str, site_id: int, role_id: int, device_type_id: int,
                          platform_id: int, status: str = "active", serial_number: str):

@@ -1,27 +1,65 @@
 from pynetbox.core.query import RequestError
-from typing import List, Optional, Sequence, Union, Literal, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple
 from netbox_utils.utils import first, iface_type_from_name, _norm_mac
 
+def ensure_primary_mac(nb, iface, mac: str) -> bool:
+    """
+    Upewnia się, że w NetBox istnieje obiekt MAC (dcim/mac-addresses),
+    jest przypięty do danego interfejsu i ustawiony jako primary (FK) na interfejsie.
+    Zwraca True, jeśli coś zmieniono.
+    """
+    changed = False
+    want = _norm_mac(mac)
+    if not want:
+        return False
+
+    # 1) Znajdź lub utwórz obiekt MAC (UWAGA: klucz to 'mac_address')
+    mac_obj = first(nb.dcim.mac_addresses.filter(mac_address=want))
+    if mac_obj is None:
+        mac_obj = nb.dcim.mac_addresses.create({
+            "mac_address": want,
+            "assigned_object_type": "dcim.interface",
+            "assigned_object_id": iface.id,
+        })
+        changed = True
+    else:
+        # 2) Jeśli istnieje, upewnij się, że jest przypięty do TEGO interfejsu
+        ao_type = getattr(mac_obj, "assigned_object_type", None)
+        ao_id = getattr(mac_obj, "assigned_object_id", None)
+        if ao_type != "dcim.interface" or ao_id != iface.id:
+            mac_obj.update({
+                "assigned_object_type": "dcim.interface",
+                "assigned_object_id": iface.id,
+            })
+            changed = True
+
+    # 3) Ustaw primary na interfejsie przez FK 'primary_mac' (ID obiektu MAC)
+    current_primary_id = getattr(getattr(iface, "primary_mac", None), "id", None)
+    if current_primary_id != mac_obj.id:
+        iface.update({"primary_mac": mac_obj.id})
+        changed = True
+
+    return changed
+
+
 def upsert_interface(
-    nb,
-    device_id: int,
-    if_name: str,
-    *,
-    description: Optional[str] = None,
-    enabled: Optional[bool] = None,
-    mtu: Optional[int] = None,
-    mac_address: Optional[str] = None,
-    cli_hash: Optional[str] = None,
+        nb,
+        device_id: int,
+        if_name: str,
+        *,
+        description: Optional[str] = None,
+        enabled: Optional[bool] = None,
+        mtu: Optional[int] = None,
+        mac_address: Optional[str] = None,
+        cli_hash: Optional[str] = None,
 ) -> Tuple[Any, bool, bool]:
     """
-        Returns: (iface, created, changed)
-        created: True if the interface was created
-        changed: True if any field was updated
+    Returns: (iface, created, changed)
+    created: True if the interface was created
+    changed: True if any field was updated
     """
-    # 1) Searching for the interface
     iface = first(nb.dcim.interfaces.filter(device_id=device_id, name=if_name))
 
-    # 2) If it doesn’t exist – create a baseline (only what MUST be present)
     if iface is None:
         payload = {
             "device": device_id,
@@ -33,7 +71,6 @@ def upsert_interface(
             iface = nb.dcim.interfaces.create(payload)
             created = True
         except RequestError:
-            # Possible race condition – try fetching again
             iface = next(iter(nb.dcim.interfaces.filter(device_id=device_id, name=if_name)), None)
             if iface is None:
                 raise
@@ -41,7 +78,6 @@ def upsert_interface(
     else:
         created = False
 
-    # 3) Build a PATCH only for actual changes (idempotency)
     patch: Dict[str, Any] = {}
 
     if description is not None and (iface.description or "") != description:
@@ -55,22 +91,23 @@ def upsert_interface(
         if iface.mtu != new_mtu:
             patch["mtu"] = new_mtu
 
-    if mac_address is not None:
-        want_mac = _norm_mac(mac_address)
-        have_mac = _norm_mac(iface.mac_address) if getattr(iface, "mac_address", None) else None
-        if want_mac and want_mac != have_mac:
-            patch["mac_address"] = want_mac
-
     if cli_hash is not None:
         cf = dict(getattr(iface, "custom_fields", {}) or {})
         if cf.get("cli_hash") != cli_hash:
             cf["cli_hash"] = cli_hash
             patch["custom_fields"] = cf
 
-    changed = bool(patch)
-    if changed:
+    changed = False
+    if patch:
         iface.update(patch)
-        # refresh (includes custom_fields)
+        # odśwież obiekt
         iface = next(iter(nb.dcim.interfaces.filter(device_id=device_id, name=if_name)), iface)
+        changed = True
+
+    if mac_address:
+        if ensure_primary_mac(nb, iface, mac_address):
+            # odśwież po zmianach
+            iface = next(iter(nb.dcim.interfaces.filter(device_id=device_id, name=if_name)), iface)
+            changed = True or changed
 
     return iface, created, changed

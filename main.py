@@ -7,7 +7,7 @@ class NetBoxCreateError(Exception):
 import pynetbox
 from device_io.ssh import connect_ssh, disable_paging, run_command
 from device_io.commands import get_command, SHOW_VERSION, SHOW_INTERFACES
-from device_io.snmp import snmp_hostname, snmp_sysdescr, snmp_model, snmp_serial, snmp_interfaces, snmp_ip
+from device_io.snmp import snmp_hostname, snmp_sysdescr, snmp_model, snmp_serial, snmp_interfaces_old, snmp_ip_old
 from rich.console import Console
 from netbox_utils.dcim.device import ensure_device_registered
 from netbox_utils.dcim.interface import upsert_interface
@@ -16,6 +16,8 @@ from parsers.ai_parser import parse_cli_to_model
 from models import Facts, DetectPlatform, DetectDeviceRole, DetectVendor
 from device_io.utils import extract_interface_section
 from netbox_utils.ipam.ip import get_or_create_ip
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from ipaddress import IPv4Address
 import re
 
 console = Console()
@@ -76,29 +78,25 @@ def start(host: str):
 
     # =========== Create interfaces ==============
     try:
-        # # 1. Get all interfaces (CLI)
-        # cmds = get_command(SHOW_INTERFACES, device_type, default="show interfaces")
-        # # cmds = [cmd.format(interface="") for cmd in SHOW_INTERFACES[device_type]]
-        # interfaces_cli = run_command(conn=conn, command=cmds)
-        #
-        # # 2. Interfaces CLI -> dict
-        # interfaces = re.findall(r'^\s*interface\s+([\w\/\.\-]+)', interfaces_cli, flags=re.MULTILINE)
-        mapping = snmp_ip.get(host)
-        # for mac, iface in mapping.items():
-        #     print(f"{mac:20} -> {iface}")
-        for ip_addr, iface in mapping.items():
-            print(f"Check {iface}\n")
-            # 3. Sprawdzam po kolei sumy kontrolne (hash) wszystkich interfejsów w przypadku różnic parsuję i aktualizuję.
-            # iface_cli = extract_interface_section(interfaces_cli, iface_name)
-            iface, created, changed = upsert_interface(nb=nb, device_id=device.id, if_name=iface)
+        interfaces = snmp_interfaces.get(host)
+        for mac, info in interfaces.items():
+            iface = info.get("iface", "unknown")
+            desc = info.get("description", "")
+            ip_adresses = info.get("ip", [])
 
-            if created:
-                if is_valid_ip(ip_addr):
-                    print(f"Set IP: {ip_addr}")
-                    nb_ip = get_or_create_ip(nb, device, ip_addr, True, iface)
+            print(f"{iface} : {mac}\n")
 
-            if not iface:
-                raise Exception("Coś poszło nie tak")
+            iface, created, changed = upsert_interface(nb=nb, device_id=device.id, if_name=iface, mac_address=mac, description=desc)
+
+            for ip in ip_adresses:
+                print(f"{ip:15}")
+                if created or changed:
+                    if is_valid_ip(ip):
+                        print(f"Set IP: {ip}")
+                        nb_ip = get_or_create_ip(nb, device, ip, True, iface)
+
+            # if not iface:
+            #     raise Exception("Coś poszło nie tak")
 
             # new_hash = sha256_of(iface_cli)
             # old_hash = (iface.custom_fields or {}).get("cli_hash")
@@ -129,8 +127,35 @@ def start(host: str):
     except Exception as e:
         raise DeviceEnsureError(f"Failed to collect facts for '{hostname}': {e}") from e
 
+def chunk_ips(start_ip: str, end_ip: str, chunk_size: int):
+    a = int(IPv4Address(start_ip))
+    b = int(IPv4Address(end_ip))
+    cur = a
+    while cur <= b:
+        chunk = []
+        for _ in range(chunk_size):
+            if cur > b:
+                break
+            chunk.append(str(IPv4Address(cur)))
+            cur += 1
+        yield chunk
+
+MAX_WORKERS = 10
+
 if __name__ == "__main__":
-    # for i in range(1, 254):
-    #     start(f"172.16.2.{i}")
-    start(f"172.16.2.91")
+    start_ip = "172.16.2.245"
+    end_ip = "172.16.2.245"
+
+    CHUNK_SIZE = 16
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+        futures = []
+        for chunk in chunk_ips(start_ip, end_ip, CHUNK_SIZE):
+            futures.append(ex.submit(lambda c=chunk: [start(ip) for ip in c]))
+
+        for fut in as_completed(futures):
+            try:
+                fut.result()
+            except Exception as e:
+                print("Task failed:", e)
 

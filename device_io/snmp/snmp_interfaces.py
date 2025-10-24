@@ -1,54 +1,52 @@
-import subprocess
-import re
-from typing import Dict
+# snmp_interfaces.py
+from typing import Dict, List, TypedDict
+from snmp_io.collector import collect, SnmpCache
+from fields import snmp_if_name, snmp_if_descr, snmp_if_mac, snmp_if_status, snmp_if_speed, snmp_ip
 
-def get(ip: str, community: str = "public") -> Dict[str, str]:
-    """
-    Zwraca słownik {MAC: interfejs}.
-    - ifDescr          -> 1.3.6.1.2.1.2.2.1.2
-    - ifPhysAddress    -> 1.3.6.1.2.1.2.2.1.6
-    Regexy są „luźne” i nie zakładają konkretnego prefiksu (iso./MIB::).
-    """
-    # --- ifDescr: indeks -> nazwa interfejsu ---
-    oid_descr = "1.3.6.1.2.1.2.2.1.2"
-    descr_out = subprocess.run(
-        ["snmpwalk", "-v2c", "-c", community, ip, oid_descr],
-        capture_output=True, text=True
-    ).stdout
+class Iface(TypedDict, total=False):
+    ifIndex: int
+    ifName: str
+    ifDescr: str
+    mac: str
+    adminStatus: int
+    operStatus: int
+    highSpeedMbps: int
+    ips: List[Dict[str, str]]  # [{"ip":..., "mask":...}, ...]
 
-    # np. 'iso.3.6.1.2.1.2.2.1.2.1002 = STRING: "GigabitEthernet1/0/1"'
-    re_descr = re.compile(r'\.(\d+)\s*=\s*STRING:\s*"([^"]*)"')
-    ifdescr = {int(idx): name for idx, name in re_descr.findall(descr_out)}
+def build_interfaces(cache: SnmpCache) -> List[Iface]:
+    names  = snmp_if_name.get(cache)
+    descrs = snmp_if_descr.get(cache)
+    macs   = snmp_if_mac.get(cache)
+    stats  = snmp_if_status.get(cache)
+    speeds = snmp_if_speed.get(cache)
+    iprows = snmp_ip.get(cache)
 
-    # --- ifPhysAddress: indeks -> MAC ---
-    oid_mac = "1.3.6.1.2.1.2.2.1.6"
-    mac_out = subprocess.run(
-        ["snmpwalk", "-v2c", "-c", community, ip, oid_mac],
-        capture_output=True, text=True
-    ).stdout
+    # ipy per ifIndex
+    ip_by_idx: Dict[int, List[Dict[str, str]]] = {}
+    for row in iprows:
+        ip_by_idx.setdefault(row["ifIndex"], []).append({"ip": row["ip"], "mask": row["mask"]})
 
-    # np. '...1.6.1002 = Hex-STRING: 40 A6 E8 FD F0 4B'
-    re_mac = re.compile(r'\.(\d+)\s*=\s*Hex-STRING:\s*([0-9A-Fa-f ]+)')
-    idx_mac_pairs = re_mac.findall(mac_out)
+    all_indices = set(descrs) | set(names) | set(macs) | set(stats) | set(speeds) | set(ip_by_idx)
 
-    mac_to_iface: Dict[str, str] = {}
-    for idx_str, mac_hex in idx_mac_pairs:
-        idx = int(idx_str)
-        hex_bytes = mac_hex.strip().split()
-        if not hex_bytes:
-            continue
-        mac = ":".join(hex_bytes).upper()
-        iface = ifdescr.get(idx, f"ifIndex {idx}")
-        mac_to_iface[mac] = iface
+    out: List[Iface] = []
+    for idx in sorted(all_indices):
+        st = stats.get(idx, {"admin": 0, "oper": 0})
+        out.append({
+            "ifIndex": idx,
+            "ifName": names.get(idx, ""),
+            "ifDescr": descrs.get(idx, ""),
+            "mac": macs.get(idx, ""),
+            "adminStatus": st["admin"],
+            "operStatus": st["oper"],
+            "highSpeedMbps": speeds.get(idx, 0),
+            "ips": ip_by_idx.get(idx, []),
+        })
+    return out
 
-    return mac_to_iface
-
-
-# === PRZYKŁAD UŻYCIA ===
 if __name__ == "__main__":
-    ip = "172.16.2.202"
+    host = "172.16.2.201"
     community = "public"
-    mapping = get(ip, community)
-    print("MAC → Interfejs:")
-    for mac, iface in mapping.items():
-        print(f"{mac:20} -> {iface}")
+    cache = collect(host, community, timeout=1)
+    interfaces = build_interfaces(cache)
+    from pprint import pprint
+    pprint(interfaces)  # albo json.dumps(...)

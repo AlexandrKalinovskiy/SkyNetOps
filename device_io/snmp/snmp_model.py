@@ -21,7 +21,7 @@ def get(ip: str, community: str = "public") -> str:
 
 # === PRZYKŁADOWE UŻYCIE ===
 if __name__ == "__main__":
-    ip = "172.16.2.245"
+    ip = "172.16.2.91"
     community = "public"
     model = get(ip, community)
     print("Model:", model)

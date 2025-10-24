@@ -22,6 +22,8 @@ def get(ip: str, community: str = "public") -> Dict[str, str]:
     re_descr = re.compile(r'\.(\d+)\s*=\s*STRING:\s*"([^"]*)"')
     idx_to_name = {int(idx): name for idx, name in re_descr.findall(out_descr)}
 
+    print(out_ip)
+
     # wynik: IP -> nazwa interfejsu
     return {
         ip_addr: idx_to_name.get(if_idx, f"ifIndex {if_idx}")
@@ -29,7 +31,7 @@ def get(ip: str, community: str = "public") -> Dict[str, str]:
     }
 
 if __name__ == "__main__":
-    device_ip = "192.168.92.131"
+    device_ip = "172.16.2.245"
     community = "public"
 
     result = get(device_ip, community)
