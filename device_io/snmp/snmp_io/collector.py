@@ -21,6 +21,7 @@ class SnmpCache:
     ifHCInOctets: Dict[int, int]
     ifHCOutOctets: Dict[int, int]
     ifHighSpeed: Dict[int, int]
+    ifAlias: Dict[int, str]
     ip_rows: List[Tuple[str, str, int]]
 
 def _parse_if_table(stdout: str) -> Dict[str, Dict[int, str | int]]:
@@ -101,19 +102,23 @@ def _parse_if_table(stdout: str) -> Dict[str, Dict[int, str | int]]:
     return out
 
 def _parse_ifx_table(stdout: str) -> Dict[str, Dict[int, str | int]]:
-    """
-    Parsuje snmpwalk po 1.3.6.1.2.1.31.1.1.1 (ifXTable.*)
-    """
     cols = {
         "1":  "ifName",         # STRING
         "6":  "ifHCInOctets",   # Counter64
         "10": "ifHCOutOctets",  # Counter64
         "15": "ifHighSpeed",    # Gauge32 (Mb/s)
+        "18": "ifAlias",        # STRING  <-- NOWE
     }
     out: Dict[str, Dict[int, str | int]] = {v: {} for v in cols.values()}
-    rx = re.compile(
-        r"\.1\.3\.6\.1\.2\.1\.31\.1\.1\.1\.(\d+)\.(\d+)\s=\s(\w+):\s(.+)"
-    )
+
+    rx = re.compile(r"\.1\.3\.6\.1\.2\.1\.31\.1\.1\.1\.(\d+)\.(\d+)\s=\s([^:]+):\s(.*)$")
+
+    def _strip_quotes(s: str) -> str:
+        s = s.strip()
+        if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+            return s[1:-1]
+        return s
+
     for line in stdout.splitlines():
         m = rx.match(line.strip())
         if not m:
@@ -123,12 +128,15 @@ def _parse_ifx_table(stdout: str) -> Dict[str, Dict[int, str | int]]:
             continue
         key = cols[col]
         idx = int(idx)
+        vtype = vtype.strip()
         if vtype == "STRING":
-            out[key][idx] = val
+            out[key][idx] = _strip_quotes(val)
         else:
-            # liczby (Counter64/Gauge32)
-            out[key][idx] = int(val.split()[0])
+            # Counter64/Gauge32 itp.
+            tok = val.split()[0]
+            out[key][idx] = int(tok) if tok.isdigit() else 0
     return out
+
 
 def _parse_ip_addr_table(stdout_ifindex: str, stdout_mask: str) -> List[Tuple[str, str, int]]:
     """
@@ -195,5 +203,6 @@ def collect(host: str, community: str, timeout: int = 2) -> SnmpCache:
         ifHCInOctets   = {k: int(v)  for k, v  in ifx_cols.get("ifHCInOctets", {}).items()},
         ifHCOutOctets  = {k: int(v)  for k, v  in ifx_cols.get("ifHCOutOctets", {}).items()},
         ifHighSpeed    = {k: int(v)  for k, v  in ifx_cols.get("ifHighSpeed", {}).items()},
+        ifAlias        = {k: str(v)  for k, v in ifx_cols.get("ifAlias", {}).items()},
         ip_rows        = ip_rows,
     )
