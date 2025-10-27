@@ -185,25 +185,55 @@ class DetectPlatform(BaseModel):
         description=(
             "Platform identifier for automation libraries like "
             "cisco_ios, dell_os10, juniper_junos, mikrotik_routeros. "
-            "If unknown, must be exactly 'unknown'. Never return null."
+            "If unknown, must be exactly 'unknown'. Never return null. "
+            "If the operating system is FreeBSD or based on FreeBSD "
+            "(e.g. pfSense, OPNsense), return 'linux' as platform type."
         )
     )
 
 class DetectDeviceRole(BaseModel):
     role: Optional[str] = Field(
         description=(
-            "Network device role based on hostname, system description, or platform. "
-            "Valid values: switch, router, server, firewall. "
-            "Specify the most correct role. If unsure, set to unknown."
+            "Network device role classification based solely on SNMP-accessible fields: "
+            "model, platform, and sysDescr.\n\n"
+
+            "Valid role values: switch, router, firewall, server, wireless_controller, unknown.\n\n"
+
+            "Classification rules:\n"
+            "- If sysDescr or model contains 'switch', classify as switch.\n"
+            "- If sysDescr or platform contains 'router', classify as router.\n"
+            "- If sysDescr contains 'pfSense' → ALWAYS classify as router.\n"
+            "- If sysDescr contains 'VyOS', classify as router unless explicitly identified as firewall.\n"
+            "- If sysDescr or model indicates firewall functionality "
+            "(e.g. 'Fortinet', 'FortiGate', 'ASA', 'PAN-', 'Checkpoint'), classify as firewall.\n"
+            "- If sysDescr mentions server OS (e.g. Windows Server, VMware ESXi, generic Linux), classify as server.\n"
+            "- If sysDescr or model indicates wireless controller "
+            "(e.g. 'WLC', 'Wireless Controller'), classify as wireless_controller.\n\n"
+
+            "Fallback behavior:\n"
+            "- If platform belongs to a routing vendor and role not clearly detected → router.\n"
+            "- If no classification match or insufficient data → unknown."
         )
     )
+
 
 class DetectVendor(BaseModel):
     vendor: Optional[str] = Field(
         description=(
-            "Network device vendor based on hostname, hardware description, MAC address OUI, "
-            "or platform. Examples: Cisco, Dell, Juniper, MikroTik, Huawei, HP, Fortinet. "
-            "If unsure, set to unknown."
+            "Network device vendor based on hostname, hardware description (sysDescr), "
+            "MAC address OUI, sysObjectID (enterprise OID), or platform.\n"
+            "Valid examples: Cisco, Dell, Juniper, MikroTik, Huawei, HP, Fortinet, Netgate.\n\n"
+
+            "Classification hints:\n"
+            "- Do NOT classify operating system names as vendors (e.g. pfSense, VyOS, FreeBSD, Linux are NOT vendors).\n"
+            "- If sysDescr contains 'pfSense', vendor should typically be 'Netgate' "
+            "or set to 'unknown' if hardware manufacturer cannot be determined.\n"
+            "- If MAC OUI lookup indicates a known vendor, use that value.\n"
+            "- If sysObjectID belongs to a registered vendor enterprise tree, use that vendor name.\n"
+            "- If hostname includes vendor branding (e.g. 'R1-Cisco'), consider that a strong hint.\n\n"
+
+            "If multiple signals conflict: prefer MAC OUI > sysObjectID > hostname > sysDescr keywords.\n"
+            "If still unsure, set vendor to unknown."
         )
     )
 

@@ -17,12 +17,10 @@ def get(ip: str, community: str = "public") -> str:
             value = match.group(1).strip()
             if value:  # pomiń puste ""
                 return value
-    return ""
+    return "unknown"
 
-
-# === PRZYKŁADOWE UŻYCIE ===
 if __name__ == "__main__":
-    ip = "172.16.2.101"
+    ip = "172.16.2.201"
     community = "public"
     serial = get(ip, community)
     print("Serial number:", serial)

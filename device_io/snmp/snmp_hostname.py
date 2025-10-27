@@ -2,7 +2,7 @@ import subprocess
 
 def get(ip: str, community: str = "public") -> str:
     """
-    Zwraca hostname (sysName) z urządzenia SNMP.
+    # Returns the hostname (sysName) from the SNMP device.
     OID: 1.3.6.1.2.1.1.5.0
     """
     oid = "1.3.6.1.2.1.1.5.0"
@@ -17,7 +17,7 @@ def get(ip: str, community: str = "public") -> str:
 
 # === PRZYKŁADOWE UŻYCIE ===
 if __name__ == "__main__":
-    ip = "172.16.2.90"
+    ip = "172.16.2.85"
     community = "public"
     hostname = get(ip, community)
     print("Hostname:", hostname)

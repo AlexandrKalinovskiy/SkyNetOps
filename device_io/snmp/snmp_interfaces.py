@@ -1,7 +1,7 @@
 # snmp_interfaces.py
 from typing import Dict, List, TypedDict
-from snmp_io.collector import collect, SnmpCache
-from fields import snmp_if_name, snmp_if_descr, snmp_if_mac, snmp_if_status, snmp_if_speed, snmp_ip, snmp_if_alias
+from device_io.snmp.snmp_io.collector import collect
+from device_io.snmp.fields import snmp_if_name, snmp_if_descr, snmp_if_mac, snmp_if_status, snmp_if_speed, snmp_ip, snmp_if_alias
 
 class Iface(TypedDict, total=False):
     ifIndex: int
@@ -14,7 +14,9 @@ class Iface(TypedDict, total=False):
     highSpeedMbps: int
     ips: List[Dict[str, str]]  # [{"ip":..., "mask":...}, ...]
 
-def build_interfaces(cache: SnmpCache) -> List[Iface]:
+def get(host) -> List[Iface]:
+    community = "public"
+    cache = collect(host, community, timeout=1)
     names  = snmp_if_name.get(cache)
     descrs = snmp_if_descr.get(cache)
     macs   = snmp_if_mac.get(cache)
@@ -47,9 +49,7 @@ def build_interfaces(cache: SnmpCache) -> List[Iface]:
     return out
 
 if __name__ == "__main__":
-    host = "192.168.92.10"
-    community = "public"
-    cache = collect(host, community, timeout=1)
-    interfaces = build_interfaces(cache)
+    host = "172.16.2.2"
+    interfaces = get(host)
     from pprint import pprint
     pprint(interfaces)  # albo json.dumps(...)

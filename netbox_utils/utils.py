@@ -2,7 +2,7 @@ import re
 import hashlib
 from models import IPv4
 from typing import List
-from ipaddress import ip_address, ip_interface
+from ipaddress import ip_address, ip_interface, ip_network
 
 def first(recordset):
     """Zwraca pierwszy element RecordSet albo None."""
@@ -45,10 +45,9 @@ def clear_ips(nb, ips: List[IPv4], iface):
         if not found:
             np_ip.delete()
 
-def is_management_interface(name: str, description: str = "") -> bool:
+def is_management_interface(name: str, description: str = "", ip: str = "") -> bool:
     text = f"{name} {description}".lower()
 
-    # lista słów kluczowych, które wskazują na mgmt/oob
     mgmt_keywords = [
         "mgmt",
         "management",
@@ -56,20 +55,32 @@ def is_management_interface(name: str, description: str = "") -> bool:
         "out-of-band",
         "mng",
         "man",
-        "fxp0",      # Juniper
-        "me0",       # Juniper
-        "em0",       # FreeBSD style
-        "ilo",       # HP iLO
-        "idrac",     # Dell iDRAC
-        "ipmi",      # IPMI
+        "fxp0",
+        "me0",
+        "em0",
+        "ilo",
+        "idrac",
+        "ipmi",
     ]
 
-    return any(keyword in text for keyword in mgmt_keywords)
+    # Condition 1: the name/description contains a management-related keyword
+    has_mgmt_keyword = any(keyword in text for keyword in mgmt_keywords)
+
+    # Condition 2: the IP is in the 172.16.2.0/24 subnet
+    is_in_mgmt_subnet = False
+    try:
+        if ip:
+            is_in_mgmt_subnet = ip_address(ip) in ip_network("172.16.2.0/24")
+    except ValueError:
+        pass
+
+    # return has_mgmt_keyword and is_in_mgmt_subnet
+    return is_in_mgmt_subnet
 
 def is_primary_interface(name: str, description: str = "") -> bool:
     text = f"{name} {description}".lower()
 
-    # jeżeli trafi się mgmt/oob to od razu nie jest primary
+    # If a management/OOB address is detected, it is immediately considered non-primary
     mgmt_keywords = ["mgmt", "management", "oob", "out-of-band", "idrac", "ipmi", "ilo"]
     if any(k in text for k in mgmt_keywords):
         return False
@@ -83,7 +94,7 @@ def is_primary_interface(name: str, description: str = "") -> bool:
         "svi",                      # vlan layer-3
     ]
 
-    # Proste wykrywanie popularnych typów primary
+    # Simple detection of common primary interface types
     if name.lower().startswith(("lo", "loopback")):
         return True
 

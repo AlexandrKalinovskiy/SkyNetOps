@@ -1,5 +1,5 @@
 from models import Interface
-from ..utils import is_management_interface, is_primary_interface
+from netbox_utils.utils import is_management_interface, is_primary_interface
 
 def get_or_create_ip(
     nb, device, address: str, is_primary: bool, interface: Interface, status: str = "active"
@@ -32,11 +32,11 @@ def get_or_create_ip(
         # console.print(f"[bold blue]ℹ Assigned IP[/] [magenta]{existing_ip.address}[/] to interface [cyan]{interface.name}[/]")
 
     # If this is a management interface - set this IP as primary
-    if is_management_interface(interface.name, interface.description) and is_primary:
+    if is_management_interface(interface.name, interface.description, address):
         device.update({"oob_ip": existing_ip.id})
-        # tqdm.write(f"  {Fore.GREEN}[+]{Style.RESET_ALL} {existing_ip.address}")
+        return existing_ip
 
-    if is_primary_interface(interface.name, interface.description) and is_primary:
+    if is_primary_interface(interface.name, interface.description):
         device.update({"primary_ip4": existing_ip.id})
 
     return existing_ip

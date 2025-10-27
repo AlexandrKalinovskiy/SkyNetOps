@@ -9,6 +9,7 @@ def get(ip: str, community: str = "public") -> str:
     cmd = ["snmpget", "-v2c", "-c", community, ip, oid]
     result = subprocess.run(cmd, capture_output=True, text=True)
 
+    print(result.stdout)
     # Przykładowa linia:
     # iso.3.6.1.2.1.1.1.0 = STRING: "Cisco IOS Software..."
     for line in result.stdout.splitlines():
@@ -18,7 +19,7 @@ def get(ip: str, community: str = "public") -> str:
     return ""
 
 if __name__ == "__main__":
-    ip = "172.16.2.245"
+    ip = "172.16.2.1"
     community = "public"
     descr = get(ip, community)
     print("sysDescr:", descr)
