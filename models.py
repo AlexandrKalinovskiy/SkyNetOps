@@ -181,13 +181,23 @@ class Facts(BaseModel):
 
 class DetectPlatform(BaseModel):
     platform: str = Field(
-        default="unknown",
         description=(
-            "Platform identifier for automation libraries like "
-            "cisco_ios, dell_os10, juniper_junos, mikrotik_routeros. "
-            "If unknown, must be exactly 'unknown'. Never return null. "
-            "If the operating system is FreeBSD or based on FreeBSD "
-            "(e.g. pfSense, OPNsense), return 'linux' as platform type."
+            "Platform identifier compatible with automation libraries such as Netmiko or NAPALM. "
+            "Used to determine the correct driver for SSH/SNMP/API communication.\n\n"
+            "Examples by vendor:\n"
+            "• Cisco: cisco_ios, cisco_xe, cisco_xr, cisco_nxos\n"
+            "• Dell: dell_os6, dell_os9, dell_os10\n"
+            "• Juniper: juniper_junos\n"
+            "• Fortinet: fortinet\n"
+            "• Huawei: huawei, huawei_olt, huawei_smartax, huawei_smartaxmmi, huawei_vrp \n"
+            "• MikroTik: mikrotik_routeros, mikrotik_switchos\n"
+            "• Linux-based (servers, pfSense, OPNsense, FreeBSD): linux\n"
+            "• Unknown vendor or unsupported system: unknown\n\n"
+            "Rules:\n"
+            "- Never return null.\n"
+            "- If the operating system is FreeBSD or derived from it (e.g. pfSense, OPNsense), "
+            "return 'linux'.\n"
+            "- If the platform cannot be determined, return 'unknown'."
         )
     )
 

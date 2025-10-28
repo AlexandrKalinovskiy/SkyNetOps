@@ -17,7 +17,7 @@ def get(ip: str, community: str = "public") -> str:
 
 # === PRZYKŁADOWE UŻYCIE ===
 if __name__ == "__main__":
-    ip = "172.16.2.85"
+    ip = "172.16.2.245"
     community = "public"
     hostname = get(ip, community)
     print("Hostname:", hostname)

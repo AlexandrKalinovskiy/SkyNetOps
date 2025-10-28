@@ -39,7 +39,8 @@ def ensure_device_registered(
     device_name,
     site_name: str = "LAB-DC",
     site_slug: str = "lab-dc",
-    facts: Facts = None
+    facts: Facts = None,
+    mgmt_address: str = None,
 ):
     """
     If the device exists — return (device, False).
@@ -75,6 +76,31 @@ def ensure_device_registered(
             status="active",
             serial_number=facts.serial_number
         )
+
         return device, created
     except Exception as e:
         raise DeviceEnsureError(f"Failed to create device '{device_name}': {e}") from e
+
+def get_interfaces_hash(device) -> str | None:
+    """Read custom field 'interfaces_hash' from a device."""
+    if not device:
+        raise ValueError("Device not found")
+    # custom_fields is a dict; return None if key missing
+    return (device.custom_fields or {}).get("interfaces_hash")
+
+def set_interfaces_hash(device, new_hash: str) -> bool:
+    """
+    Update custom field 'interfaces_hash' if changed.
+    Returns True if updated, False if no change was needed.
+    """
+    if not device:
+        raise ValueError("Device not found")
+
+    current = (device.custom_fields or {}).get("interfaces_hash")
+    if current == new_hash:
+        return False  # nothing to do
+
+    # Use PATCH via update() with only the changed custom field
+    payload = {"custom_fields": {"interfaces_hash": new_hash}}
+    device.update(payload)
+    return True
