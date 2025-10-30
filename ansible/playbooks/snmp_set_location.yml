@@ -29,5 +29,5 @@
     - name: Assert SNMP location matches
       assert:
         that:
-          - ios_snmp_loc.stdout[0] is search("snmp-server location\\s+{{ snmp_location | regex_escape() }}")
+          - ios_snmp_loc.stdout[0] is search("snmp-server location\\s+" + (snmp_location | regex_escape))
         fail_msg: "SNMP location on Cisco does not match expected value '{{ snmp_location }}'."
