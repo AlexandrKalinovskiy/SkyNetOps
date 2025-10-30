@@ -1,0 +1,2 @@
+# ansible/group_vars/all.yml
+snmp_location: "PNT Opole, Rack KROS1, Unit 05"

@@ -19,7 +19,7 @@ def get(ip: str, community: str = "public") -> str:
     return ""
 
 if __name__ == "__main__":
-    ip = "172.16.2.54"
+    ip = "172.16.2.245"
     community = "public"
     descr = get(ip, community)
     print("sysDescr:", descr)

@@ -1,0 +1,33 @@
+- name: Set SNMP location on Cisco IOS
+  hosts: cisco
+  gather_facts: no
+  vars:
+    # Ensure we fail fast if variable is missing
+    _required_vars: ["snmp_location"]
+  pre_tasks:
+    - name: Validate required variables
+      assert:
+        that:
+          - item in vars
+          - (vars[item] | string | length) > 0
+        fail_msg: "Missing required variable: {{ item }}"
+      loop: "{{ _required_vars }}"
+
+  tasks:
+    - name: Configure SNMP location (idempotent)
+      cisco.ios.ios_config:
+        lines:
+          - "snmp-server location {{ snmp_location }}"
+        save_when: modified  # write memory only if changed
+
+    - name: Verify running config contains desired location
+      cisco.ios.ios_command:
+        commands:
+          - "show running-config | include ^snmp-server location"
+      register: ios_snmp_loc
+
+    - name: Assert SNMP location matches
+      assert:
+        that:
+          - ios_snmp_loc.stdout[0] is search("snmp-server location\\s+{{ snmp_location | regex_escape() }}")
+        fail_msg: "SNMP location on Cisco does not match expected value '{{ snmp_location }}'."

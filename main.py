@@ -5,7 +5,8 @@ class NetBoxCreateError(Exception):
     pass
 
 import pynetbox
-from device_io.snmp import snmp_hostname, snmp_sysdescr, snmp_model, snmp_serial, snmp_interfaces, snmp_device_role
+from device_io.snmp import snmp_hostname, snmp_sysdescr, snmp_model, snmp_serial, snmp_interfaces, snmp_device_role, \
+    snmp_location
 from rich.console import Console
 from netbox_utils.dcim import rack
 from netbox_utils.dcim.device import ensure_device_registered, get_interfaces_hash, set_interfaces_hash
@@ -26,12 +27,11 @@ console = Console()
 _thread_local = threading.local()
 
 def get_nb():
-    """Return a NetBox client stored in thread-local storage (one per thread)."""
     nb = getattr(_thread_local, "nb", None)
     if nb is None:
         # Prefer env vars; avoid hardcoding secrets
-        url = os.getenv("NETBOX_URL", "http://10.8.0.1:8000")
-        token = os.getenv("NETBOX_TOKEN", "97c50a928fff461721ec0eeb826f6e54eac6826e")
+        url = os.getenv("NETBOX_URL", "http://localhost:8000")
+        token = os.getenv("NETBOX_TOKEN", "f2486a671fcd4ef076374483289071f090a46234")
         nb = pynetbox.api(url, token=token)
         # Optional: fail fast (uncomment if helpful)
         # nb.status()
@@ -44,11 +44,13 @@ def start(host: str):
 
     console.print(f"[bold]🔌Check IP: [/] {host}")
     hostname = snmp_hostname.get(host)
+    location = snmp_location.get(host)
     if not hostname:
         return
 
     rack_name = rack_parser.get(hostname)
-    print(f"{hostname} -> {rack_name}")
+
+    print(f"{hostname} -> {rack_name} -> {location}")
 
     # =========== Collect facts and create device in NetBox ==============
     try:
@@ -138,8 +140,8 @@ def chunk_ips(start_ip: str, end_ip: str, chunk_size: int):
 MAX_WORKERS = 10
 
 if __name__ == "__main__":
-    start_ip = "172.16.2.111"
-    end_ip = "172.16.2.111"
+    start_ip = "172.16.2.1"
+    end_ip = "172.16.2.254"
 
     CHUNK_SIZE = 16
 

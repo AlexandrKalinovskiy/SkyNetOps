@@ -2,10 +2,6 @@ import subprocess
 import re
 
 def get(ip: str, community: str = "public") -> str:
-    """
-    Zwraca numer seryjny urządzenia (ENTITY-MIB::entPhysicalSerialNum).
-    OID: 1.3.6.1.2.1.47.1.1.1.1.11
-    """
     oid = "1.3.6.1.2.1.47.1.1.1.1.11"
     cmd = ["snmpwalk", "-v2c", "-c", community, ip, oid]
     result = subprocess.run(cmd, capture_output=True, text=True)
