@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from device_io.snmp.snmp_io.runner import snmpbulkwalk_adaptive
+from entities.Facts import Facts
 
 # OID-y (numeryczne, bez MIB-ów)
 IF_TABLE_BASE   = "1.3.6.1.2.1.2.2.1"        # ifTable.*
@@ -193,6 +194,8 @@ def collect(host: str, community: str, timeout: int = 2) -> SnmpCache:
         only_mac = snmpbulkwalk_adaptive(host, community, "1.3.6.1.2.1.2.2.1.6", timeout)
         mac_only = _parse_if_table(only_mac)
         if_cols["ifPhysAddress"] = mac_only.get("ifPhysAddress", {})
+
+
 
     return SnmpCache(
         ifDescr        = {k: str(v) for k, v in if_cols["ifDescr"].items()},

@@ -10,15 +10,19 @@ def get_or_create_ip(
     existing_ip = next(iter(results), None)  # Take the first result or None
 
     if existing_ip and interface:
-        if existing_ip.assigned_object is None:
-            print("The IP is not assigned to any interface")
-            existing_ip.assigned_object_type = "dcim.interface"
-            existing_ip.assigned_object_id = interface.id
-            existing_ip.save()
-            # console.print(f"[bold blue]ℹ Assigned IP[/] [magenta]{existing_ip.address}[/] to interface [cyan]{interface.name}[/]")
-        else:
-            iface = nb.dcim.interfaces.get(existing_ip.assigned_object_id)
-            device = nb.dcim.devices.get(iface.device.id)
+        print("The IP is not assigned to any interface")
+        existing_ip.assigned_object_type = "dcim.interface"
+        existing_ip.assigned_object_id = interface.id
+        existing_ip.save()
+        # if existing_ip.assigned_object is None:
+        #     print("The IP is not assigned to any interface")
+        #     existing_ip.assigned_object_type = "dcim.interface"
+        #     existing_ip.assigned_object_id = interface.id
+        #     existing_ip.save()
+        #     # console.print(f"[bold blue]ℹ Assigned IP[/] [magenta]{existing_ip.address}[/] to interface [cyan]{interface.name}[/]")
+        # else:
+        #     iface = nb.dcim.interfaces.get(existing_ip.assigned_object_id)
+        #     device = nb.dcim.devices.get(iface.device.id)
 
     if not existing_ip and interface:
         existing_ip = nb.ipam.ip_addresses.create(

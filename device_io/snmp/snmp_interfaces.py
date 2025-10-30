@@ -70,7 +70,7 @@ def get(host) -> Tuple[List[Iface], str]:
     return out, hash_hex
 
 if __name__ == "__main__":
-    host = "172.16.2.46"
+    host = "172.16.2.245"
     interfaces = get(host)
     from pprint import pprint
     pprint(interfaces)  # albo json.dumps(...)

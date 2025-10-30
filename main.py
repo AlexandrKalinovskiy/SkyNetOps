@@ -12,7 +12,8 @@ from netbox_utils.dcim.device import ensure_device_registered, get_interfaces_ha
 from netbox_utils.dcim.interface import upsert_interface
 from netbox_utils.utils import sha256_of, clear_ips, is_valid_ip
 from parsers.ai_parser import parse_cli_to_model
-from models import Facts, DetectPlatform, DetectDeviceRole, DetectVendor
+from models import DetectPlatform, DetectDeviceRole, DetectVendor
+from entities.Facts import Facts
 from netbox_utils.ipam.ip import get_or_create_ip
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ipaddress import IPv4Address
@@ -70,14 +71,14 @@ def start(host: str):
                 serial_number=serial or "none",
                 platform=platform_detect.platform,
                 device_role=role_detect.role,
-                os_version="unknown",
-                mgmt_ip="",
-                interfaces=[]
             )
             device, created = ensure_device_registered(nb, device_name=hostname, facts=facts, mgmt_address=host)
 
         if created:
-            nb_ip = get_or_create_ip(nb, device, host, False, interface=None)
+            # Add virtual mgmt interface for 172.16.2.0
+            iface, created, changed = upsert_interface(nb=nb, device_id=device.id, if_name="virtual-mgmt",
+                                                       description="virtual-mgmt")
+            nb_ip = get_or_create_ip(nb, device, host, False, interface=iface)
             console.print(f"[green]✔ Created device[/] [yellow]{device.name} {host}[/] in NetBox")
             if rack_name:
                 rack.assign_device_to_rack(nb, device, rack_name)
@@ -137,8 +138,8 @@ def chunk_ips(start_ip: str, end_ip: str, chunk_size: int):
 MAX_WORKERS = 10
 
 if __name__ == "__main__":
-    start_ip = "172.16.2.245"
-    end_ip = "172.16.2.245"
+    start_ip = "172.16.2.111"
+    end_ip = "172.16.2.111"
 
     CHUNK_SIZE = 16
 

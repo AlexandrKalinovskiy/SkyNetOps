@@ -26,6 +26,8 @@ def iface_type_from_name(name: str) -> str:
         return "1000base-t"
     if n.startswith(("te", "tengigabitethernet")):
         return "10gbase-x-sfpp"
+    if n.startswith(("virtual", "mgmt")):
+        return "virtual"
     return "other"
 
 def _norm_mac(mac: str) -> str:
