@@ -1,6 +1,6 @@
 ---
 - name: Cisco IOS sanity check
-  hosts: cisco
+  hosts: sw1
   gather_facts: no
   tasks:
     - name: Show clock (sanity test)
