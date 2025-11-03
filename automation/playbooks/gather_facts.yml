@@ -1,0 +1,13 @@
+---
+- name: Gather IOS facts
+  hosts: cisco_switches
+  connection: network_cli
+  gather_facts: no
+  tasks:
+    - name: Collect facts
+      cisco.ios.ios_facts:
+        gather_subset: all
+      register: ios_data
+
+    - debug:
+        var: ios_data.ansible_facts
