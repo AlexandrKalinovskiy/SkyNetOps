@@ -1,8 +1,0 @@
----
-- name: Simple Hello World Playbook
-  hosts: all
-  gather_facts: false
-  tasks:
-    - name: Print Hello World {{ ansible_host }}
-      debug:
-        msg: "Hello world from Ansible Runner!"

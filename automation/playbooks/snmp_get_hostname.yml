@@ -1,0 +1,22 @@
+---
+- name: Get SNMP hostname (sysName.0)
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Get hostname via SNMP (sysName.0)
+      delegate_to: localhost
+      ansible.builtin.command: >
+        snmpget -v2c -c public -t 1 -r 1 {{ hostvars[inventory_hostname].ansible_host }} 1.3.6.1.2.1.1.5.0
+      register: snmp_sysname
+      changed_when: false
+
+    - name: Parse hostname
+      vars:
+        parsed: "{{ snmp_sysname.stdout }}"
+      set_fact:
+        snmp_hostname: "{{ parsed }}"
+
+    - name: Show hostname
+      ansible.builtin.debug:
+        msg: "{{ snmp_hostname }}"

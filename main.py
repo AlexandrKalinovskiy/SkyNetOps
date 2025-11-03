@@ -30,8 +30,8 @@ def get_nb():
     nb = getattr(_thread_local, "nb", None)
     if nb is None:
         # Prefer env vars; avoid hardcoding secrets
-        url = os.getenv("NETBOX_URL", "http://localhost:8000")
-        token = os.getenv("NETBOX_TOKEN", "f2486a671fcd4ef076374483289071f090a46234")
+        url = os.getenv("NETBOX_URL", "http://10.8.0.1:8000")
+        token = os.getenv("NETBOX_TOKEN", "26b986a9b64d3a9ffb09a18a3086b1725d93ad55")
         nb = pynetbox.api(url, token=token)
         # Optional: fail fast (uncomment if helpful)
         # nb.status()
