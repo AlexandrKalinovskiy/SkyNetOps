@@ -1,0 +1,12 @@
+all:
+    children:
+        cisco:
+            hosts:
+                172.16.2.245:
+                    ansible_user: admin
+                    ansible_password: Op2oyxq##
+                    ansible_connection: network_cli
+                    ansible_network_os: cisco.ios.ios
+                    ansible_become: yes
+                    ansible_become_method: enable
+                    ansible_become_password: Op2oyxq##

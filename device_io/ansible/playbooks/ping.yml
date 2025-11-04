@@ -1,0 +1,13 @@
+---
+- name: Test network_cli on Cisco IOS
+  hosts: cisco
+  gather_facts: no
+  tasks:
+    - name: Show version
+      ansible.netcommon.cli_command:
+        command: show version
+      register: out
+
+    - name: Print output
+      debug:
+        var: out.stdout_lines

@@ -1,0 +1,22 @@
+---
+- name: Get Cisco IOS facts
+  hosts: cisco
+  gather_facts: no
+  connection: ansible.netcommon.network_cli
+  collections:
+    - cisco.ios
+
+  tasks:
+    - name: Gather IOS facts (hardware + default)
+      cisco.ios.ios_facts:
+        gather_subset:
+          - hardware
+          - default
+
+    - name: Show facts (smoke)
+      ansible.builtin.debug:
+        msg:
+          hostname: "{{ ansible_facts.net_hostname }}"
+          model: "{{ ansible_facts.net_model }}"
+          version: "{{ ansible_facts.net_version }}"
+          serial: "{{ ansible_facts.net_serialnum }}"
