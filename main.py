@@ -30,8 +30,8 @@ def get_nb():
     nb = getattr(_thread_local, "nb", None)
     if nb is None:
         # Prefer env vars; avoid hardcoding secrets
-        url = os.getenv("NETBOX_URL", "http://10.8.0.1:8000")
-        token = os.getenv("NETBOX_TOKEN", "97c50a928fff461721ec0eeb826f6e54eac6826e")
+        url = os.getenv("NETBOX_URL", "http://localhost:8000")
+        token = os.getenv("NETBOX_TOKEN", "62bfd65a340095777b11e816889d64975c06a4fb")
         nb = pynetbox.api(url, token=token)
         # Optional: fail fast (uncomment if helpful)
         # nb.status()
@@ -138,8 +138,8 @@ def chunk_ips(start_ip: str, end_ip: str, chunk_size: int):
 MAX_WORKERS = 10
 
 if __name__ == "__main__":
-    start_ip = "172.16.2.111"
-    end_ip = "172.16.2.111"
+    start_ip = "172.16.2.245"
+    end_ip = "172.16.2.245"
 
     CHUNK_SIZE = 16
 
