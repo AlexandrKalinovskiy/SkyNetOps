@@ -7,16 +7,22 @@
     - cisco.ios
 
   tasks:
-    - name: Gather IOS facts (hardware + default)
+    - name: Gather IOS facts (hardware + default + interfaces)
       cisco.ios.ios_facts:
         gather_subset:
           - hardware
           - default
+          - interfaces        # 🔹 dodane — zbiera dane o interfejsach
 
-    - name: Show facts (smoke)
+    - name: Show main device facts
       ansible.builtin.debug:
         msg:
           hostname: "{{ ansible_facts.net_hostname }}"
           model: "{{ ansible_facts.net_model }}"
           version: "{{ ansible_facts.net_version }}"
           serial: "{{ ansible_facts.net_serialnum }}"
+
+    - name: Show interface facts (summary)
+      ansible.builtin.debug:
+        msg: "{{ item.key }}: {{ item.value.description | default('') }} / {{ item.value.operstatus }}"
+      loop: "{{ ansible_facts.net_interfaces | dict2items }}"
